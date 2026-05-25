@@ -44,7 +44,7 @@ jobs:
 
           s = s.replace(
               needle,
-              "- -DUSE_GLES2=OFF\n - -DUSE_GLES3=ON"
+              "- -DUSE_GLES2=OFF\n      - -DUSE_GLES3=ON"
           )
 
           p.write_text(s)
