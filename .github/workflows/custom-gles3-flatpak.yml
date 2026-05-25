@@ -6,11 +6,7 @@ on:
 jobs:
   build-gles3-flatpak:
     name: build custom GLES3 Flatpak aarch64
-    runs-on: ubuntu-latest
-
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
-      options: --privileged
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout
@@ -21,16 +17,39 @@ jobs:
 
       - name: Fix git safe directory
         run: |
-          git config --global --add safe.directory /__w/wiliwili/wiliwili
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Show source version
         run: |
           set -eux
+          uname -a
+          dpkg --print-architecture || true
           git rev-parse HEAD
           git describe --tags --always || true
-          uname -a
-          ls -la
+
+      - name: Install build tools
+        run: |
+          set -eux
+          sudo apt update
+          sudo apt install -y \
+            flatpak flatpak-builder \
+            cmake ninja-build pkg-config python3 \
+            git git-lfs curl ca-certificates \
+            xz-utils unzip
+
+          flatpak --version
+          flatpak-builder --version
+
+      - name: Install Flatpak runtime and SDK
+        run: |
+          set -eux
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Platform.GL.default//25.08 \
+            org.freedesktop.Platform.GL.default//25.08-extra
+          flatpak list --runtime --columns=application,branch,arch,origin,installation,version
 
       - name: Patch manifest to GLES3 safely
         run: |
@@ -65,38 +84,35 @@ jobs:
           grep -nE 'USE_GLES|USE_EGL|MPV_NO_FB|PLATFORM_DESKTOP|runtime-version' .flatpak-manifest.yml || true
 
           echo "===== manifest around GLES flags ====="
-          nl -ba .flatpak-manifest.yml | sed -n '145,175p'
+          nl -ba .flatpak-manifest.yml | sed -n '145,180p'
 
       - name: Generate gamepad mappings
         run: |
           set -eux
           BRLS_GLFW="library/borealis/library/lib/extern/glfw/"
-          cmake -P "${BRLS_GLFW}/CMake/GenerateMappings.cmake"               "${BRLS_GLFW}/src/mappings.h.in"               "${BRLS_GLFW}/src/mappings.h"
+          cmake -P "${BRLS_GLFW}/CMake/GenerateMappings.cmake" \
+            "${BRLS_GLFW}/src/mappings.h.in" \
+            "${BRLS_GLFW}/src/mappings.h"
 
-      - name: Install Flatpak runtime and SDK
+      - name: Build Flatpak bundle
         run: |
           set -eux
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --arch=aarch64 flathub \
-            org.freedesktop.Platform//25.08 \
-            org.freedesktop.Sdk//25.08 \
-            org.freedesktop.Platform.GL.default//25.08 \
-            org.freedesktop.Platform.GL.default//25.08-extra
-          flatpak list --runtime --columns=application,branch,arch,origin,installation,version
-
-      - name: Manual flatpak-builder build
-        run: |
-          set -eux
-          flatpak --version
-          flatpak-builder --version || true
-
-          # Fix bwrap namespace issue in container
-          sysctl kernel.unprivileged_userns_clone=1 2>/dev/null || true
-
           rm -rf build-dir repo
-          flatpak-builder             --force-clean             --ccache             --disable-rofiles-fuse             --repo=repo             --arch=aarch64             build-dir             .flatpak-manifest.yml
 
-          flatpak build-bundle             --arch=aarch64             repo             wiliwili-custom-gles3-aarch64.flatpak             cn.xfangfang.wiliwili             master
+          flatpak-builder \
+            --force-clean \
+            --ccache \
+            --repo=repo \
+            --arch=aarch64 \
+            build-dir \
+            .flatpak-manifest.yml
+
+          flatpak build-bundle \
+            --arch=aarch64 \
+            repo \
+            wiliwili-custom-gles3-aarch64.flatpak \
+            cn.xfangfang.wiliwili \
+            master
 
           ls -lh wiliwili-custom-gles3-aarch64.flatpak
           sha256sum wiliwili-custom-gles3-aarch64.flatpak
