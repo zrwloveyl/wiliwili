@@ -19,6 +19,11 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Fix git safe directory
+        run: |
+          git config --global --add safe.directory /__w/wiliwili/wiliwili
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Show source version
         run: |
           set -eux
