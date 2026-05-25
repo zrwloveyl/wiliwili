@@ -13,10 +13,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: Fix git safe directory
+        run: git config --global --add safe.directory /__w/wiliwili/wiliwili
 
       - name: Show source version
         run: |
@@ -73,7 +76,7 @@ jobs:
           sha256sum wiliwili-custom-gles3-aarch64.flatpak
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: wiliwili-custom-gles3-aarch64
           path: wiliwili-custom-gles3-aarch64.flatpak
