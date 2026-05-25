@@ -73,10 +73,16 @@ jobs:
           BRLS_GLFW="library/borealis/library/lib/extern/glfw/"
           cmake -P "${BRLS_GLFW}/CMake/GenerateMappings.cmake"               "${BRLS_GLFW}/src/mappings.h.in"               "${BRLS_GLFW}/src/mappings.h"
 
-      - name: Install Flatpak SDK runtime
+      - name: Install Flatpak runtime and SDK
         run: |
+          set -eux
           flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y flathub org.freedesktop.Sdk//25.08 org.freedesktop.Platform//25.08
+          flatpak install -y --arch=aarch64 flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Platform.GL.default//25.08 \
+            org.freedesktop.Platform.GL.default//25.08-extra
+          flatpak list --runtime --columns=application,branch,arch,origin,installation,version
 
       - name: Manual flatpak-builder build
         run: |
