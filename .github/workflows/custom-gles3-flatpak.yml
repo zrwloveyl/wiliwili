@@ -1,0 +1,80 @@
+name: Build custom wiliwili GLES3 Flatpak
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-gles3-flatpak:
+    name: build custom GLES3 Flatpak aarch64
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Show source version
+        run: |
+          git rev-parse HEAD
+          git describe --tags --always || true
+          uname -a
+
+      - name: Patch manifest to GLES3
+        run: |
+          echo "===== before patch ====="
+          grep -nE 'USE_GLES|USE_EGL|MPV_NO_FB|PLATFORM_DESKTOP|runtime-version' .flatpak-manifest.yml || true
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path(".flatpak-manifest.yml")
+          s = p.read_text()
+
+          needle = "- -DUSE_GLES2=OFF"
+          if needle not in s:
+              raise SystemExit("Cannot find USE_GLES2=OFF in .flatpak-manifest.yml")
+
+          s = s.replace(
+              needle,
+              "- -DUSE_GLES2=OFF\n - -DUSE_GLES3=ON"
+          )
+
+          p.write_text(s)
+          PY
+
+          echo "===== after patch ====="
+          grep -nE 'USE_GLES|USE_EGL|MPV_NO_FB|PLATFORM_DESKTOP|runtime-version' .flatpak-manifest.yml || true
+
+      - name: Generate gamepad mappings
+        run: |
+          BRLS_GLFW="library/borealis/library/lib/extern/glfw/"
+          cmake -P "${BRLS_GLFW}/CMake/GenerateMappings.cmake" \
+              "${BRLS_GLFW}/src/mappings.h.in" \
+              "${BRLS_GLFW}/src/mappings.h"
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
+        with:
+          bundle: wiliwili-custom-gles3-aarch64.flatpak
+          manifest-path: .flatpak-manifest.yml
+          cache-key: flatpak-builder-custom-gles3-${{ hashFiles('.flatpak-manifest.yml') }}
+          verbose: true
+          arch: aarch64
+          upload-artifact: false
+
+      - name: Check bundle
+        run: |
+          ls -lh wiliwili-custom-gles3-aarch64.flatpak
+          sha256sum wiliwili-custom-gles3-aarch64.flatpak
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: wiliwili-custom-gles3-aarch64
+          path: wiliwili-custom-gles3-aarch64.flatpak
+          if-no-files-found: error
