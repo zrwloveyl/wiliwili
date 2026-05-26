@@ -7,10 +7,13 @@ jobs:
   build-gles3-flatpak:
     name: Build GLES3 Flatpak aarch64
     runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      options: --privileged
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
@@ -48,12 +51,10 @@ jobs:
           echo "===== After patch ====="
           grep -n 'USE_GLES' .flatpak-manifest.yml || true
 
-      - name: Generate gamepad mappings
+      - name: Install deps
         run: |
           BRLS_GLFW="library/borealis/library/lib/extern/glfw/"
-          cmake -P "${BRLS_GLFW}/CMake/GenerateMappings.cmake" \
-            "${BRLS_GLFW}/src/mappings.h.in" \
-            "${BRLS_GLFW}/src/mappings.h"
+          cmake -P ${BRLS_GLFW}/CMake/GenerateMappings.cmake  ${BRLS_GLFW}/src/mappings.h.in  ${BRLS_GLFW}/src/mappings.h
 
       - name: Build Flatpak
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
@@ -61,10 +62,11 @@ jobs:
           bundle: wiliwili-gles3-aarch64.flatpak
           manifest-path: .flatpak-manifest.yml
           cache-key: flatpak-builder-gles3-${{ hashFiles('.flatpak-manifest.yml') }}
+          verbose: true
           arch: aarch64
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wiliwili-gles3-aarch64
           path: wiliwili-gles3-aarch64.flatpak
