@@ -43,13 +43,13 @@ jobs:
       - name: Install Flatpak runtime and SDK
         run: |
           set -eux
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y flathub \
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub \
             org.freedesktop.Platform//25.08 \
             org.freedesktop.Sdk//25.08 \
             org.freedesktop.Platform.GL.default//25.08 \
             org.freedesktop.Platform.GL.default//25.08-extra
-          flatpak list --runtime --columns=application,branch,arch,origin,installation,version
+          sudo flatpak list --runtime --columns=application,branch,arch,origin,installation,version
 
       - name: Patch manifest to GLES3 safely
         run: |
@@ -99,7 +99,7 @@ jobs:
           set -eux
           rm -rf build-dir repo
 
-          flatpak-builder \
+          sudo flatpak-builder \
             --force-clean \
             --ccache \
             --repo=repo \
@@ -107,7 +107,7 @@ jobs:
             build-dir \
             .flatpak-manifest.yml
 
-          flatpak build-bundle \
+          sudo flatpak build-bundle \
             --arch=aarch64 \
             repo \
             wiliwili-custom-gles3-aarch64.flatpak \
