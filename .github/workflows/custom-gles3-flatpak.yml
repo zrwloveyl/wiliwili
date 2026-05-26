@@ -7,8 +7,6 @@ jobs:
   build-gles3-flatpak:
     name: Build GLES3 Flatpak aarch64
     runs-on: ubuntu-24.04-arm
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
 
     steps:
       - name: Checkout
