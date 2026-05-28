@@ -83,6 +83,7 @@ jobs:
 
           flatpak-builder \
             --force-clean \
+            --no-debuginfo \
             --arch=aarch64 \
             --repo=repo \
             --subject="wiliwili GLES3 ARM64 $(date +%Y%m%d-%H%M)" \
