@@ -1,0 +1,121 @@
+name: '小龙虾 wiliwili GLES3 ARM64 从零构建'
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build wiliwili GLES3 aarch64 Flatpak
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: 显示环境
+        run: |
+          echo "=== 系统信息 ==="
+          uname -a
+          dpkg --print-architecture
+          echo "=== Git 信息 ==="
+          git rev-parse HEAD
+          git describe --tags --always 2>/dev/null || echo "no tags"
+          echo "=== 磁盘 ==="
+          df -h /
+
+      - name: 安装构建工具
+        run: |
+          sudo apt update -qq
+          sudo apt install -y --no-install-recommends \
+            flatpak flatpak-builder \
+            cmake ninja-build pkg-config \
+            python3 curl ca-certificates xz-utils unzip
+          echo "=== 版本 ==="
+          flatpak --version
+          flatpak-builder --version
+          cmake --version
+          ninja --version
+
+      - name: 安装 Flatpak SDK
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y --noninteractive flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Platform.GL.default//25.08 \
+            org.freedesktop.Platform.GL.default//25.08-extra
+          echo "=== 已安装运行时 ==="
+          flatpak list --runtime --columns=application,branch,arch
+
+      - name: 注入 GLES3 配置
+        run: |
+          echo "=== 修改前 ==="
+          grep -n 'USE_GLES\|USE_EGL\|PLATFORM_DESKTOP' .flatpak-manifest.yml
+
+          # 在 USE_GLES2=OFF 后插入 USE_GLES3=ON
+          sed -i '/- -DUSE_GLES2=OFF/a\      - -DUSE_GLES3=ON' .flatpak-manifest.yml
+
+          # 确保 EGL 开启
+          sed -i 's/- -DUSE_EGL=OFF/- -DUSE_EGL=ON/' .flatpak-manifest.yml
+
+          echo "=== 修改后 ==="
+          grep -n 'USE_GLES\|USE_EGL\|PLATFORM_DESKTOP' .flatpak-manifest.yml
+
+      - name: 生成手柄映射
+        run: |
+          BRLS_GLFW="library/borealis/library/lib/extern/glfw/"
+          if [ -f "${BRLS_GLFW}/CMake/GenerateMappings.cmake" ]; then
+            cmake -P "${BRLS_GLFW}/CMake/GenerateMappings.cmake" \
+              "${BRLS_GLFW}/src/mappings.h.in" \
+              "${BRLS_GLFW}/src/mappings.h"
+            echo "手柄映射已生成"
+          else
+            echo "跳过手柄映射 (文件不存在)"
+          fi
+
+      - name: Flatpak 构建
+        run: |
+          rm -rf build-dir repo
+
+          flatpak-builder \
+            --force-clean \
+            --arch=aarch64 \
+            --repo=repo \
+            --subject="wiliwili GLES3 ARM64 $(date +%Y%m%d-%H%M)" \
+            build-dir \
+            .flatpak-manifest.yml 2>&1 | tee build.log
+
+      - name: 打包 bundle
+        run: |
+          flatpak build-bundle \
+            repo \
+            wiliwili-gles3-arm64.flatpak \
+            cn.xfangfang.wiliwili \
+            --arch=aarch64 \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+
+          ls -lh wiliwili-gles3-arm64.flatpak
+          echo "BUNDLE_SIZE=$(stat -c%s wiliwili-gles3-arm64.flatpak)" >> $GITHUB_ENV
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiliwili-gles3-arm64-flatpak
+          path: wiliwili-gles3-arm64.flatpak
+          retention-days: 30
+          compression-level: 0
+
+      - name: 构建摘要
+        run: |
+          echo "================================="
+          echo "  ✅ wiliwili GLES3 ARM64 构建完成"
+          echo "================================="
+          echo "产物: wiliwili-gles3-arm64.flatpak"
+          ls -lh wiliwili-gles3-arm64.flatpak
+          echo ""
+          echo "安装方式:"
+          echo "  flatpak install --user wiliwili-gles3-arm64.flatpak"
