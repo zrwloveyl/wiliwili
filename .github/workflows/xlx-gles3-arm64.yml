@@ -30,7 +30,7 @@ jobs:
         run: |
           sudo apt update -qq
           sudo apt install -y --no-install-recommends \
-            flatpak flatpak-builder \
+            flatpak flatpak-builder elfutils \
             cmake ninja-build pkg-config \
             python3 curl ca-certificates xz-utils unzip
           echo "=== 版本 ==="
